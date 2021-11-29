@@ -1,0 +1,109 @@
+#########################
+# This code performs ARIMA simulations on inflation rate within a certain period on the selected data
+# You will need to import your data first. I used a csv called "Inflation" and defined it on the variable data
+#########################
+
+
+#Packages
+library(fpp2)
+library(ggplot2)
+library(ggfortify)
+library(forecast)
+library(tseries)
+
+# Load data
+data <- inflation
+summary(data)
+
+
+# Convert data to time series data
+Y <- ts(data[,2],start=c(2012,1), frequency = 12)
+
+
+MA = forecast::ma(Y, order=7, centre=TRUE)
+plot(Y)
+lines(MA, col="red", lwd = 3)
+
+decompose(Y)
+plot(decompose(Y))
+
+#########################
+# Preliminary Analysis
+#########################
+#Cyclical
+boxplot(Y~cycle(Y))
+
+# Time Plot
+autoplot(Y) +
+  ggtitle("Time Plot: inflation rate change in Czech Republic") +
+  ylab("% change")
+
+# Transform the data to get rid of the trend 
+# Take the first difference of the data to remove the trend
+DY <- diff(Y)
+
+# Time Plot difference data
+autoplot(DY) +
+  ggtitle("Time Plot: inflation rate change in Czech Republic") +
+  ylab("% change")
+
+
+###########################
+# Our series Y has trend and  seasonality
+# To remove the trend, we take the first difference
+# The first differencial series has  seasonality
+###########################
+
+##Test stationary
+adf.test(DY)
+
+#####
+# ARIMA/ Getting rid of the trend and seasonality
+######
+fit_arima <- auto.arima(Y,d=1,D=1,stepwise = FALSE, approximation=FALSE, trace=TRUE) 
+checkresiduals(fit_arima)
+
+###############################
+# Forecast with ARIMA
+###############################
+fcst <- forecast(fit_arima, h=2)
+autoplot(fcst)
+
+
+
+###################################################################
+###################################################################
+### External Variables
+###################################################################
+###################################################################
+
+# Some other external factor outside the overall factor impacting the forecast. 
+# I selected some external variables which I believe might have an impact on inflation but are not included on the antional statistics (M2...)
+# These external variables were compiled into different columns within csv called "Regressors"
+# Always check if the data has been annualized, is it logaritmical?? and so on
+
+reg<-Regressors
+
+# Convert data to time series
+timeseries <- ts(reg[,2:4],start=c(2012,1), frequency = 12) # Note: there are 3 regressors columns 2 to 5
+
+autoplot(timeseries)
+
+###############################
+# ARIMAX
+###############################
+
+(fit_arimax <- auto.arima(timeseries[,"Inflation"],
+                         xreg=timeseries[,c(2:3)],d=1,D=1,stepwise = FALSE, approximation=FALSE, trace=TRUE)) 
+
+print(summary(fit_arimax))
+checkresiduals(fit_arimax)
+
+###############################
+# Forecast with ARIMAX
+###############################
+
+autoplot(forecast(fit_arimax, 
+                  xreg= matrix(rep(mean(timeseries[,c(2:3)]), 12),ncol=2)))
+
+
